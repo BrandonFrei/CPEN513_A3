@@ -60,7 +60,7 @@ def split_nodes_random(nodes):
             nodes_b[i] = deepcopy(nodes[i])
     return nodes_a, nodes_b
 
-def get_gain(nodes_a, nodes_b, edges):
+def get_cost(nodes_a, nodes_b, edges):
     for i in range(len(edges)):
         all_in_set_a = 0
         all_in_set_b = 0
@@ -77,9 +77,9 @@ def get_gain(nodes_a, nodes_b, edges):
         else:
             edges[i][1] = 0
     return edges
-    # # edges that cross the partition - # of edges that don't cross partition
+    # edges that cross the partition - # of edges that don't cross partition
 
-def get_gain_hypernet(nodes_a, nodes_b, edges):
+def get_cost_hypernet(nodes_a, nodes_b, edges):
     for i in range(len(edges)):
         normalizing_factor = 1/(len(edges[i][0]) - 1)
         edges[i][1] = normalizing_factor
@@ -102,50 +102,14 @@ def get_highest_costs(nodes_a, nodes_b):
     high_cost_b = get_highest_cost(nodes_b)
     return high_cost_a, high_cost_b
 
-def calc_each_gain(nodes_a, nodes_b, edges, swapped_node_1, swapped_node_2):
-    #there is an issue with calculating cost here that needs to be addressed.
-    nodes_to_recalc = list(set((nodes_a[swapped_node_2][0]) + (nodes_b[swapped_node_1][0])))
-    print(nodes_to_recalc)
-    
-    for i in range(len(nodes_to_recalc)):
-        cost = 0
-        if (nodes_to_recalc[i] in nodes_a):
-            # for each net associated with each node
-            for j in range(len(nodes_a[nodes_to_recalc[i]][0])):
-                # for each node that is associated with each net
-                for k in range(len(edges[nodes_a[nodes_to_recalc[i]][0][j]])):
-                    # if the node is on the correct side of the cut
-                    if ((edges[nodes_a[nodes_to_recalc[i]][0][j]][0][k]) in nodes_a):
-                        continue
-                    else:
-                        cost += edges[nodes_a[nodes_to_recalc[i]][0][j]][1]
-            nodes_a[nodes_to_recalc[i]][1] = cost
-        else:
-            for j in range(len(nodes_b[nodes_to_recalc[i]][0])):
-                # for each node that is associated with each net
-                for k in range(len(edges[nodes_b[nodes_to_recalc[i]][0][j]])):
-                    # if the node is on the correct side of the cut
-                    if ((edges[nodes_b[nodes_to_recalc[i]][0][j]][0][k]) in nodes_b):
-                        continue
-                    else:
-                        cost += edges[nodes_b[nodes_to_recalc[i]][0][j]][1]
-            nodes_b[nodes_to_recalc[i]][1] = 1 - cost
-    print("================ Gains from each node =====================")
-    print(nodes_a)
-    # print(nodes_b)
-    return nodes_a, nodes_b
-
 def calc_new_costs_vanilla(nodes_a, nodes_b, edges, swapped_node_1, swapped_node_2):
     delta_cost = 0
     edges_to_recalc = list(set(nodes_a[swapped_node_2][0] + nodes_b[swapped_node_1][0]))
     previous_cost = 0
     for i in range(len(edges_to_recalc)):
-        # if (edges[edges_to_recalc[i]][1] == 1):
-        #     previous_cost += 1
-        # else:
-        #     previous_cost -= 1
         node_a_cost = 0
         node_b_cost = 0
+
         for j in range(len(edges[edges_to_recalc[i]][0])):
             if (edges[edges_to_recalc[i]][0][j] in nodes_a):
                 node_a_cost = 1
@@ -161,8 +125,48 @@ def calc_new_costs_vanilla(nodes_a, nodes_b, edges, swapped_node_1, swapped_node
             if (edges[edges_to_recalc[i]][1] == 1):
                 delta_cost -= 1
             edges[edges_to_recalc[i]][1] = 0
-            print("string_value: " + str(edges[edges_to_recalc[i]][1]) + ", for " + str(edges[edges_to_recalc[i]][0]) + ", node_cost_a: " + str(node_a_cost) + ", node_cost_b: " + str(node_b_cost))
-            print(nodes_a)
+    return edges, delta_cost
+
+
+def calc_new_costs_modified(nodes_a, nodes_b, edges, swapped_node_1, swapped_node_2):
+    delta_cost = 0
+    edges_to_recalc = list(set(nodes_a[swapped_node_2][0] + nodes_b[swapped_node_1][0]))
+    previous_cost = 0
+    for i in range(len(edges_to_recalc)):
+        node_a_cost = 0
+        node_b_cost = 0
+
+        for j in range(len(edges[edges_to_recalc[i]][0])):
+            if (edges[edges_to_recalc[i]][0][j] in nodes_a):
+                node_a_cost += 1
+            if (edges[edges_to_recalc[i]][0][j] in nodes_b):
+                node_b_cost += 1
+            if (node_a_cost & node_b_cost):
+                break
+        # print("This_iteration")
+        # print("len(edges[edges_to_recalc[i]][0]) - 1: " + str(len(edges[edges_to_recalc[i]][0])) + ", node_a_cost: " + str(node_a_cost))
+        
+        # if all of the nodes are in the correct side
+        if (len(edges[edges_to_recalc[i]][0]) == node_a_cost or len(edges[edges_to_recalc[i]][0]) == node_b_cost):
+            if (edges[edges_to_recalc[i]][1] == 1):
+                delta_cost -= 1
+            edges[edges_to_recalc[i]][1] = 0
+        # if there is a single node on the wrong side of the partition,
+        # and if both nodes are connected in the same net
+        # effectively, by taking this move, we're not maximizing the best edge move we could be 
+        elif ((len(edges[edges_to_recalc[i]][0]) - 1 == node_a_cost or len(edges[edges_to_recalc[i]][0]) - 1 == node_b_cost)
+                # and if they are both in the same net
+                and (swapped_node_1 in edges[edges_to_recalc[i]][0] and swapped_node_2 in edges[edges_to_recalc[i]][0])):
+            print("hello")
+            delta_cost += 1
+            if (edges[edges_to_recalc[i]][1] == 0):
+                delta_cost += 1
+            edges[edges_to_recalc[i]][1] = 1
+
+        else:
+            if (edges[edges_to_recalc[i]][1] == 0):
+                delta_cost += 1
+            edges[edges_to_recalc[i]][1] = 1
     return edges, delta_cost
 
 
@@ -178,10 +182,8 @@ def calc_total_gain(nodes_a, nodes_b):
     node_b_keys = list(nodes_b.keys())
     cost = 0
     for i in range(len(node_a_keys)):
-        # print(nodes_a[node_a_keys[i]][1])
         cost += nodes_a[node_a_keys[i]][1]
     for i in range(len(node_b_keys)):
-        # print(nodes_b[node_b_keys[i]][1])
         cost += nodes_b[node_b_keys[i]][1]
     return cost
 
@@ -304,7 +306,7 @@ def init_cell_placements(num_blocks, num_rows, num_connections, num_columns, net
         block_locations[int(i)] = []
         associated_nets = []
         for j in range(num_connections):
-            if int(i) in netlist[j][0][1:]:
+            if int(i) in netlist[j][0][:]:
                 associated_nets.append(j)
         block_locations[int(i)].append(associated_nets)
         block_locations[int(i)].append(0)
@@ -315,21 +317,22 @@ def init_cell_placements(num_blocks, num_rows, num_connections, num_columns, net
 
 
 def main_function(input_file):
-    random.seed(9)
+    # random.seed(9)
     edges = parse_netlist(input_file)
     num_blocks, num_connections, num_rows, num_columns, edges = get_values(edges)
     nodes = init_cell_placements(num_blocks, num_rows, num_connections, num_columns, edges)
-    # print(nodes)
-    
-    # nodes_a, nodes_b = split_nodes(nodes)
+
     nodes_a, nodes_b = split_nodes_random(nodes)
-    edges = get_gain(nodes_a, nodes_b, edges)
-    # edges = get_gain_hypernet(nodes_a, nodes_b, edges)
+    edges = get_cost(nodes_a, nodes_b, edges)
 
-    nodes_a, nodes_b, edges = loop_2(nodes_a, nodes_b, edges, num_blocks)
-
+    fig, ax1 = plt.subplots()
+    nodes_a, nodes_b, edges = loop_2(nodes_a, nodes_b, edges, num_blocks, fig, ax1)
+    # plt.pause(5)
     node_keys = list(nodes_a.keys()) + list(nodes_b.keys())
     new_nodes = {}
+    new_edges = get_cost(nodes_a, nodes_b, edges)
+    new_cost = calc_total_cost(new_edges)
+    print("new cost: " + str(new_cost))
     for i in range(num_blocks):
         if (node_keys[i] in nodes_a):
             new_nodes[node_keys[i]] = nodes[node_keys[i]][0]
@@ -339,62 +342,63 @@ def main_function(input_file):
     old_nodes = {}
     for i in range(len(nodes)):
         old_nodes[i] = nodes[i][0]
-    # print(sorted(old_nodes.items()))
     print("NEW_NODES")
-    # print(sorted(new_nodes.items()))
     if (new_nodes == old_nodes):
         print("test passed :)")
-    print(edges)
-    # print(nodes_a)
-    print(sorted(nodes_b))
-    # 442 paira lowest 
-    print(calc_total_cost(edges))
     return nodes_a, nodes_b, edges
 
 
-def loop_2(nodes_a, nodes_b, edges, num_blocks):
-    fig, ax1 = plt.subplots()
+def loop_2(nodes_a, nodes_b, edges, num_blocks, fig, ax1):
     plt.title("Cost vs. Number of Steps")
     ax1.set_xlabel("Number of KL Iterations")
     ax1.set_ylabel("Cost (Total Cuts)", c="red")
     cost_array = []
-    is_change = 0
     i = 0
-    best_cut_a = {}
-    best_cut_b = {}
-    while (i < 6 or is_change):
-        # print(nodes_a)
-        unlock_all_nodes(nodes_a, nodes_b)
+    best_cut_a = deepcopy(nodes_a)
+    best_cut_b = deepcopy(nodes_b)
+    best_edges = deepcopy(edges)
+    while (i < 6):
+        nodes_a, nodes_b = unlock_all_nodes(nodes_a, nodes_b)
+        is_change = 0
         nodes_a, nodes_b = calc_each_gain_initial_vanilla(nodes_a, nodes_b, edges)
         cost = calc_total_cost(edges)
-        temp_cost = deepcopy(cost)
+        temp_cost = cost
         # print("current iteration: " + str(i))
         for j in range(int(num_blocks / 2)):
-        # for j in range(1):
-            # print(nodes_a)
+            
             highest_cost_node_a, highest_cost_node_b = get_highest_costs(nodes_a, nodes_b)
             # print("Node A highest cost: " + str(highest_cost_node_a) + ", Node B highest cost: " + str(highest_cost_node_b))
             nodes_a, nodes_b = swap_nodes(nodes_a, nodes_b, highest_cost_node_a, highest_cost_node_b)
-            edges, delta_cost = calc_new_costs_vanilla(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
+            # print(nodes_a)
+            # print(sorted(nodes_a))
+            edges, delta_cost = calc_new_costs_modified(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
+            # print("new-nodes:")
+            # print(nodes_a)
+            # print(sorted(nodes_a))
             temp_cost += delta_cost
-
-            if (cost >= temp_cost):
+            # print("temp costs: " + str(temp_cost))
+            if (cost > temp_cost):
                 cost = temp_cost
                 best_cut_a = deepcopy(nodes_a)
                 best_cut_b = deepcopy(nodes_b)
                 best_edges = deepcopy(edges)
-        nodes_a = best_cut_a
-        nodes_b = best_cut_b
-        edges = best_edges
-        
+                # print(best_edges)
+                # print(sorted(best_cut_a))
+                is_change = 1
+
         cost_array.append(cost)
         ax1.scatter(i, cost, c="Red")
         ax1.plot(range(i+1), cost_array, c="red", linestyle='-')
         plt.pause(0.05)
         i = i + 1
         print(cost)
-    plt.pause(1)
+        if(is_change == 1):
+            nodes_a = deepcopy(best_cut_a)
+            nodes_b = deepcopy(best_cut_b)
+            edges = deepcopy(best_edges)
+        else:
+            return best_cut_a, best_cut_b, best_edges
+            break
+        
     return nodes_a, nodes_b, edges
-    # print(nodes_a)
-    # print(nodes_b)
     
