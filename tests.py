@@ -11,7 +11,7 @@ import Partitioning as part
 class TestStringMethods(unittest.TestCase):
 
     def test_output_validity(self):
-        nodes_a, nodes_b, edges = part.main_function("ass2_files/cm138a.txt")
+        nodes_a, nodes_b, edges = part.main_function("ass2_files/paira.txt")
         for i in range(len(edges)):
             cost = 0   
             for j in range(len(edges[i][0])):

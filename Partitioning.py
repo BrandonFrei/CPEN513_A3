@@ -79,12 +79,6 @@ def get_cost(nodes_a, nodes_b, edges):
     return edges
     # edges that cross the partition - # of edges that don't cross partition
 
-def get_cost_hypernet(nodes_a, nodes_b, edges):
-    for i in range(len(edges)):
-        normalizing_factor = 1/(len(edges[i][0]) - 1)
-        edges[i][1] = normalizing_factor
-    return edges
-
 def get_highest_cost(nodes):
     node_keys = list(nodes.keys())
     max_cost = -100000000
@@ -157,7 +151,6 @@ def calc_new_costs_modified(nodes_a, nodes_b, edges, swapped_node_1, swapped_nod
         elif ((len(edges[edges_to_recalc[i]][0]) - 1 == node_a_cost or len(edges[edges_to_recalc[i]][0]) - 1 == node_b_cost)
                 # and if they are both in the same net
                 and (swapped_node_1 in edges[edges_to_recalc[i]][0] and swapped_node_2 in edges[edges_to_recalc[i]][0])):
-            print("hello")
             delta_cost += 1
             if (edges[edges_to_recalc[i]][1] == 0):
                 delta_cost += 1
@@ -174,17 +167,6 @@ def calc_total_cost(edges):
     cost = 0
     for i in range(len(edges)):
         cost += edges[i][1]
-    return cost
-
-def calc_total_gain(nodes_a, nodes_b):
-    # print("new cost calc")
-    node_a_keys = list(nodes_a.keys())
-    node_b_keys = list(nodes_b.keys())
-    cost = 0
-    for i in range(len(node_a_keys)):
-        cost += nodes_a[node_a_keys[i]][1]
-    for i in range(len(node_b_keys)):
-        cost += nodes_b[node_b_keys[i]][1]
     return cost
 
 def calc_each_gain_initial_vanilla(nodes_a, nodes_b, edges):
@@ -206,29 +188,6 @@ def calc_each_gain_initial_vanilla(nodes_a, nodes_b, edges):
             else:
                 cost -= 1
         nodes_b[node_b_keys[i]][1] += cost
-    return nodes_a, nodes_b
-
-def calc_each_gain_initial(nodes_a, nodes_b, edges):
-    # list of the keys, because it's essentially a gather scatter
-    node_a_keys = list(nodes_a.keys())
-    for i in range(len(nodes_a)):
-        # if the node is locked
-        if (nodes_a[node_a_keys[i]][2] == 1):
-            continue
-        node_a_cost = 0
-        for j in range(len(nodes_a[node_a_keys[i]][0])):
-            # add the contributing cost from each net associated to the node
-            node_a_cost += edges[nodes_a[node_a_keys[i]][0][j]][1]
-        nodes_a[node_a_keys[i]][1] = node_a_cost
-    node_b_keys = list(nodes_b.keys())
-    for i in range(len(nodes_b)):
-        # if the node is locked
-        if (nodes_b[node_b_keys[i]][2] == 1):
-            continue
-        node_b_cost = 0
-        for j in range(len(nodes_b[node_b_keys[i]][0])):
-            node_b_cost += edges[nodes_b[node_b_keys[i]][0][j]][1]
-        nodes_b[node_b_keys[i]][1] = node_b_cost
     return nodes_a, nodes_b
 
 def swap_nodes(nodes_a, nodes_b, node_to_swap_a, node_to_swap_b):
