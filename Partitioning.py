@@ -64,18 +64,20 @@ def get_cost(nodes_a, nodes_b, edges):
     for i in range(len(edges)):
         all_in_set_a = 0
         all_in_set_b = 0
+        nodes_in_a = 0
         for j in range(len(edges[i][0])):
             edge = edges[i][0][j]
             if (edge in nodes_a):
+                nodes_in_a += 1
                 all_in_set_a = 1
             if (edge in nodes_b):
                 all_in_set_b = 1
-            if (all_in_set_a and all_in_set_b):
-                break
+        edges[i][2] = nodes_in_a
         if (all_in_set_a and all_in_set_b):
             edges[i][1] = 1
         else:
             edges[i][1] = 0
+    print(edges)
     return edges
     # edges that cross the partition - # of edges that don't cross partition
 
@@ -174,26 +176,60 @@ def calc_total_cost(edges):
 def calc_each_gain_initial_vanilla(nodes_a, nodes_b, edges):
     node_a_keys = list(nodes_a.keys())
     for i in range(len(nodes_a)):
-        cost = 0
+        gain = 0
         for j in range(len(nodes_a[node_a_keys[i]][0])):
             if (edges[nodes_a[node_a_keys[i]][0][j]][1] == 1):
-                cost += 1
+                gain += 2 / (len(edges[nodes_a[node_a_keys[i]][0][j]][0]))
             else:
-                cost -= 1
-        nodes_a[node_a_keys[i]][1] += cost
+                gain -= 1
+        nodes_a[node_a_keys[i]][1] = gain
     node_b_keys = list(nodes_b.keys())
     for i in range(len(nodes_b)):
-        cost = 0
+        gain = 0
         for j in range(len(nodes_b[node_b_keys[i]][0])):
             if (edges[nodes_b[node_b_keys[i]][0][j]][1] == 1):
-                cost += 1
+                gain += 2 / (len(edges[nodes_b[node_b_keys[i]][0][j]][0]))
             else:
-                cost -= 1
-        nodes_b[node_b_keys[i]][1] += cost
+                gain -= 1
+        nodes_b[node_b_keys[i]][1] = gain
     return nodes_a, nodes_b
 
-def swap_nodes(nodes_a, nodes_b, node_to_swap_a, node_to_swap_b):
+
+def calc_each_gain_initial_vanilla2(nodes_a, nodes_b, edges, swapped_node_1, swapped_node_2):
+    node_a_keys = list(nodes_a.keys())
+    for i in range(len(nodes_a)):
+        gain = 0
+        for j in range(len(nodes_a[node_a_keys[i]][0])):
+            if (edges[nodes_a[node_a_keys[i]][0][j]][1] == 1):
+                if ((swapped_node_1 in edges[nodes_a[node_a_keys[i]][0][j]][0] and swapped_node_2 in edges[nodes_a[node_a_keys[i]][0][j]][0])
+                    and (edges[nodes_a[node_a_keys[i]][0][j]][2] == len(edges[nodes_a[node_a_keys[i]][0][j]][0]) - 1)):
+                    gain += 1
+                gain += 2 / (len(edges[nodes_a[node_a_keys[i]][0][j]][0]))
+            else:
+                gain -= 1
+        nodes_a[node_a_keys[i]][1] = gain
+    node_b_keys = list(nodes_b.keys())
+    for i in range(len(nodes_b)):
+        gain = 0
+        for j in range(len(nodes_b[node_b_keys[i]][0])):
+            if (edges[nodes_b[node_b_keys[i]][0][j]][1] == 1):
+                if ((swapped_node_1 in edges[nodes_b[node_b_keys[i]][0][j]][0] and swapped_node_2 in edges[nodes_b[node_b_keys[i]][0][j]][0])
+                    and (edges[nodes_b[node_b_keys[i]][0][j]][2] == 1)):
+                    gain += 1
+                gain += 2 / (len(edges[nodes_b[node_b_keys[i]][0][j]][0]))
+            else:
+                gain -= 1
+        nodes_b[node_b_keys[i]][1] = gain
+    return nodes_a, nodes_b
+
+def swap_nodes(nodes_a, nodes_b, edges, node_to_swap_a, node_to_swap_b):
     temp = deepcopy(nodes_b[node_to_swap_b])
+    # for all of the edges that the node we are about to swap are associated to
+    # increase the amount of a nodes that belong in that side
+    for i in range(len(nodes_b[node_to_swap_b][0])):
+        edges[nodes_b[node_to_swap_b][0][i]][2] += 1
+    for i in range(len(nodes_a[node_to_swap_a][0])):
+        edges[nodes_a[node_to_swap_a][0][i]][2] -= 1
     del nodes_b[node_to_swap_b]
     nodes_a[node_to_swap_b] = temp
     temp = deepcopy(nodes_a[node_to_swap_a])
@@ -236,6 +272,7 @@ def get_values(netlist):
         new_netlist[int(i)] = []
         new_netlist[int(i)].append(netlist[i][1:])
         # the 0 will represet that the node has not yet been moved (it is unlocked)
+        new_netlist[int(i)].append(0)
         new_netlist[int(i)].append(0)
     return num_blocks, num_connections, num_rows, num_columns, new_netlist
 
@@ -281,15 +318,15 @@ def main_function(input_file):
     # random.seed(9)
     edges = parse_netlist(input_file)
     num_blocks, num_connections, num_rows, num_columns, edges = get_values(edges)
-    print(edges)
+    # print(edges)
     nodes = init_cell_placements(num_blocks, num_rows, num_connections, num_columns, edges)
     nodes_a, nodes_b = split_nodes_random(nodes)
-    print(nodes_a)
-    print(nodes_b)
+    # print(nodes_a)
+    # print(nodes_b)
     edges = get_cost(nodes_a, nodes_b, edges)
 
     fig, ax1 = plt.subplots()
-    nodes_a, nodes_b, edges = loop_2(nodes_a, nodes_b, edges, num_blocks, fig, ax1)
+    nodes_a, nodes_b, edges = loop_3(nodes_a, nodes_b, edges, num_blocks, fig, ax1)
     # plt.pause(5)
     node_keys = list(nodes_a.keys()) + list(nodes_b.keys())
     new_nodes = {}
@@ -308,6 +345,58 @@ def main_function(input_file):
     print("NEW_NODES")
     if (new_nodes == old_nodes):
         print("test passed :)")
+    # print(edges)
+    return nodes_a, nodes_b, edges
+
+
+
+def loop_3(nodes_a, nodes_b, edges, num_blocks, fig, ax1):
+    plt.title("Cost vs. Number of Steps")
+    ax1.set_xlabel("Number of KL Iterations")
+    ax1.set_ylabel("Cost (Total Cuts)", c="red")
+    cost_array = []
+    i = 0
+    best_cut_a = deepcopy(nodes_a)
+    best_cut_b = deepcopy(nodes_b)
+    best_edges = deepcopy(edges)
+    while (i < 6):
+        nodes_a, nodes_b = unlock_all_nodes(nodes_a, nodes_b)
+        is_change = 0
+        nodes_a, nodes_b = calc_each_gain_initial_vanilla(nodes_a, nodes_b, edges)
+        cost = calc_total_cost(edges)
+        temp_cost = cost
+        # print("current iteration: " + str(i))
+        for j in range(int(num_blocks / 2)):
+            highest_cost_node_a, highest_cost_node_b = get_highest_costs(nodes_a, nodes_b)
+            # print("Node A highest cost: " + str(highest_cost_node_a) + ", Node B highest cost: " + str(highest_cost_node_b))
+            nodes_a, nodes_b = swap_nodes(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
+
+            edges, delta_cost = calc_new_costs_vanilla(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
+            nodes_a, nodes_b = calc_each_gain_initial_vanilla2(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
+            temp_cost += delta_cost
+            # print("temp costs: " + str(temp_cost))
+            if (cost > temp_cost):
+                cost = temp_cost
+                best_cut_a = deepcopy(nodes_a)
+                best_cut_b = deepcopy(nodes_b)
+                best_edges = deepcopy(edges)
+                # print(best_edges)
+                # print(best_cut_a)
+                is_change = 1
+
+        cost_array.append(cost)
+        ax1.scatter(i, cost, c="Red")
+        ax1.plot(range(i+1), cost_array, c="red", linestyle='-')
+        plt.pause(0.05)
+        i = i + 1
+        print(cost)
+        if(is_change == 1):
+            nodes_a = deepcopy(best_cut_a)
+            nodes_b = deepcopy(best_cut_b)
+            edges = deepcopy(best_edges)
+        else:
+            return best_cut_a, best_cut_b, best_edges
+        
     return nodes_a, nodes_b, edges
 
 
@@ -328,15 +417,15 @@ def loop_2(nodes_a, nodes_b, edges, num_blocks, fig, ax1):
         temp_cost = cost
         # print("current iteration: " + str(i))
         for j in range(int(num_blocks / 2)):
-            
+            nodes_a, nodes_b = calc_each_gain_initial_vanilla(nodes_a, nodes_b, edges)
             highest_cost_node_a, highest_cost_node_b = get_highest_costs(nodes_a, nodes_b)
             # print("Node A highest cost: " + str(highest_cost_node_a) + ", Node B highest cost: " + str(highest_cost_node_b))
-            nodes_a, nodes_b = swap_nodes(nodes_a, nodes_b, highest_cost_node_a, highest_cost_node_b)
+            nodes_a, nodes_b = swap_nodes(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
 
             edges, delta_cost = calc_new_costs_vanilla(nodes_a, nodes_b, edges, highest_cost_node_a, highest_cost_node_b)
 
             temp_cost += delta_cost
-            print("temp costs: " + str(temp_cost))
+            # print("temp costs: " + str(temp_cost))
             if (cost > temp_cost):
                 cost = temp_cost
                 best_cut_a = deepcopy(nodes_a)
